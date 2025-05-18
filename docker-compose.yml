@@ -1,0 +1,169 @@
+services:
+  pgsql:
+    container_name: 'pgsql'
+    image: 'postgres:17'
+    restart: on-failure
+    ports:
+      - '${FORWARD_DB_PORT:-5432}:5432'
+    environment:
+      PGPASSWORD: '${DB_PASSWORD:-secret}'
+      POSTGRES_DB: '${DB_DATABASE}'
+      POSTGRES_USER: '${DB_USERNAME}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+    volumes:
+      - 'sail-pgsql:/var/lib/postgresql/data'
+      - './pgsql/create-databases.sql:/docker-entrypoint-initdb.d/10-create-databases.sql'
+    networks:
+      - sail
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "${DB_DATABASE}", "-U", "${DB_USERNAME}"]
+      retries: 3
+      timeout: 5s
+
+  redis:
+    container_name: 'redis'
+    image: 'redis:alpine'
+    restart: on-failure
+    ports:
+      - '${FORWARD_REDIS_PORT:-6379}:6379'
+    volumes:
+      - 'sail-redis:/data'
+    networks:
+      - sail
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      retries: 3
+      timeout: 5s
+
+  memcached:
+    container_name: 'memcached'
+    image: 'memcached:alpine'
+    restart: on-failure
+    ports:
+      - '${FORWARD_MEMCACHED_PORT:-11211}:11211'
+    networks:
+      - sail
+
+  minio:
+    container_name: 'minio'
+    image: 'minio/minio:latest'
+    restart: on-failure
+    ports:
+      - '${FORWARD_MINIO_PORT:-9000}:9000'
+      - '${FORWARD_MINIO_CONSOLE_PORT:-8900}:8900'
+    environment:
+      MINIO_ROOT_USER: sail
+      MINIO_ROOT_PASSWORD: password
+    volumes:
+      - 'sail-minio:/data/minio'
+    networks:
+      - sail
+    command: 'minio server /data/minio --console-address ":8900"'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      retries: 3
+      timeout: 5s
+
+  typesense:
+    container_name: 'typesense'
+    image: 'typesense/typesense:27.1'
+    restart: on-failure
+    ports:
+      - '8108:8108'
+    volumes:
+      - 'sail-typesense:/data'
+    command: '--data-dir /data --api-key=typesense --enable-cors'
+    networks:
+      - sail
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8108/health"]
+      retries: 3
+      timeout: 5s
+
+  typesense-dashboard:
+    container_name: 'typesense-dashboard'
+    image: 'ghcr.io/bfritscher/typesense-dashboard:latest'
+    restart: on-failure
+    ports:
+      - "8000:8000"
+
+  meilisearch:
+    container_name: 'meilisearch'
+    image: 'getmeili/meilisearch:latest'
+    restart: on-failure
+    ports:
+      - '${FORWARD_MEILISEARCH_PORT:-7700}:7700'
+    environment:
+      MEILI_NO_ANALYTICS: '${MEILISEARCH_NO_ANALYTICS:-false}'
+    volumes:
+      - 'sail-meilisearch:/meili_data'
+    networks:
+      - sail
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:7700/health"]
+      retries: 3
+      timeout: 5s
+
+  meilisearch-dashboard:
+    container_name: 'meilisearch-dashboard'
+    image: 'riccoxie/meilisearch-ui:latest'
+    restart: on-failure
+    ports:
+      - "24900:24900"
+
+  redis-insight:
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    image: redis/redisinsight:latest
+    restart: on-failure
+    command: -v redisinsight:/data
+    volumes:
+      - 'sail-redis-insight:/data'
+    networks:
+      - sail
+
+  searxng:
+    image: searxng/searxng
+    ports:
+      - "32768:8080"
+    volumes:
+      - ${PWD}/searxng:/etc/searxng
+    environment:
+      BASE_URL: "http://localhost:8080/"
+      INSTANCE_NAME: "my-instance"
+    restart: always
+
+  n8n:
+    container_name: 'n8n'
+    image: 'docker.n8n.io/n8nio/n8n'
+    restart: always
+    ports:
+      - '5678:5678'
+    environment:
+      N8N_RUNNERS_ENABLED: 'true'
+      N8N_LOG_LEVEL: 'debug'
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
+    volumes:
+      - 'n8n_data:/home/node/.n8n'
+
+networks:
+  sail:
+    name: sail
+    driver: bridge
+
+volumes:
+  sail-pgsql:
+    driver: local
+  sail-typesense:
+    driver: local
+  sail-redis:
+    driver: local
+  sail-minio:
+    driver: local
+  sail-meilisearch:
+    driver: local
+  sail-redis-insight:
+    driver: local
+  n8n_data:
+     driver: local
