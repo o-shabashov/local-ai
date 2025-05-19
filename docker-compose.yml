@@ -24,7 +24,7 @@ services:
     volumes:
       - 'searxng:/etc/searxng'
     environment:
-      BASE_URL: "http://localhost:8080/"
+      BASE_URL: "http://localhost:32768/"
       INSTANCE_NAME: "my-searxng-instance"
     restart: always
 
