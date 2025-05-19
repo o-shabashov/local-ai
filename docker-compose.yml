@@ -52,12 +52,20 @@ services:
       - 'open-webui:/app/backend/data'
     restart: always
 
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --run-once open-webui
+    restart: no
+
 volumes:
   local-ai-pgsql:
     driver: local
   open-webui:
     driver: local
   searxng:
-    driver:  local
+    driver: local
   n8n_data:
-     driver: local
+    driver: local
